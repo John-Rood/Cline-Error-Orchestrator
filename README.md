@@ -11,6 +11,19 @@ This tool polls your cloud provider (GCP, AWS, etc.) for errors, deduplicates th
 3. **Routes** the issue to the correct local codebase (e.g., backend vs frontend)
 4. **Launches** VS Code and triggers Cline to investigate automatically
 5. **Fixes** the issue (User Error, System Bug, or External Factor) and documents it
+6. **Deploys** the fix by triggering your CI/CD workflow (e.g., `mit` workflow)
+
+## Self-Healing Cloud Services
+
+This isn't just an error reporter—it's a **Full Lifecycle Self-Healing System**.
+
+When an error occurs:
+1. **Detection**: The orchestrator catches the error from your cloud logs.
+2. **Investigation**: It launches Cline to analyze the codebase and root cause.
+3. **Remediation**: Cline implements the fix (e.g., adding an exception handler or fixing a null pointer).
+4. **Deployment**: Cline automatically triggers your deployment workflow (CI/CD) to push the fix to production.
+
+**Result:** A production error is detected, fixed, and deployed without you waking up.
 
 ## Quick Start
 
