@@ -1,0 +1,29 @@
+# User-specific configuration (contains local paths)
+config/services.json
+
+# Runtime data
+data/seen_errors.json
+data/pending/*.json
+
+# Keep the directories but not their contents
+!data/.gitkeep
+!data/pending/.gitkeep
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
