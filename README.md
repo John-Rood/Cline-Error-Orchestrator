@@ -25,7 +25,7 @@ This tool creates a fully automated error resolution pipeline: detect errors →
 3. **Routes** the issue to the correct local codebase (e.g., backend vs frontend)
 4. **Launches** VS Code and triggers Cline to investigate automatically
 5. **Fixes** the issue (User Error, System Bug, or External Factor) and documents it
-6. **Deploys** the fix by triggering your CI/CD workflow (e.g., `mit` workflow)
+6. **Deploys** the fix by triggering your CI/CD workflow (e.g., `push` workflow)
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ Create your configuration file:
 Copy-Item config\services.example.json config\services.json
 ```
 
-Edit `config\services.json` to map your services to local folders:
+Edit `config\services.json` to map your **cloud services** to **local codebases**:
 
 ```json
 {
@@ -64,6 +64,21 @@ Edit `config\services.json` to map your services to local folders:
   }
 }
 ```
+
+#### How Service Mapping Works
+
+Your cloud services (e.g., Cloud Run, Lambda, App Service) write logs when errors occur. Each log entry includes a **service name** that identifies which deployed instance threw the error.
+
+The config file maps those service names to your local codebase:
+
+```
+Cloud Service Name  →  Local Codebase
+───────────────────────────────────────
+"my-backend-service"  →  C:/Projects/my-backend
+"my-frontend-service" →  C:/Projects/my-frontend
+```
+
+When the orchestrator detects an error from `my-backend-service`, it knows to open `C:/Projects/my-backend` in VS Code so Cline can fix the actual source code.
 
 ### 3. Enable Automation
 
@@ -97,7 +112,7 @@ Here's how the complete automated loop works:
 2. **Orchestrator Polls**: Every 5 minutes, `poll_errors.ps1` checks cloud logs.
 3. **Cline Launches**: VS Code opens in the correct repo, Cline receives the task.
 4. **AI Investigates**: Cline reads logs, classifies the error, and writes a fix.
-5. **CI/CD Triggers**: The investigation workflow calls your deploy workflow (e.g., `mit`).
+5. **CI/CD Triggers**: The investigation workflow calls your deploy workflow (e.g., `push`).
 6. **New Version Deploys**: Your cloud service is updated with the fix.
 7. **Loop Repeats**: The orchestrator continues monitoring for new errors.
 
@@ -118,7 +133,7 @@ The investigation workflow (`workflows/investigate.md`) ends by calling your CI/
 }
 ```
 
-Or use a Cline workflow like `mit` that handles commit → push → deploy.
+Or use a Cline workflow like `push` that handles commit → push → deploy.
 
 ## Cloud Agnostic
 
