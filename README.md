@@ -106,6 +106,12 @@ This is useful when different services need different investigation strategies. 
 
 Place custom workflows in your Cline workflows directory or include them with the service repo.
 
+#### Automatic Documentation
+
+The investigation workflow automatically creates `docs/AUTOMATED_PATCHES.md` in your service workspace if it doesn't exist. This file tracks all patches made by the orchestrator, using the template from `templates/AUTOMATED_PATCHES.md`.
+
+You don't need to pre-create any files—Cline handles it automatically on the first investigation.
+
 ### 3. Enable Automation
 
 Install the scheduled task to start polling:

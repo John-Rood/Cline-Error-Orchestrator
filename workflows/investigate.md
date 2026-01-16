@@ -12,23 +12,27 @@ This workflow is triggered automatically by the Error Orchestrator when new dist
 
 ## Steps
 
-1. **Read the pending errors file** specified in the launch prompt (e.g., `<orchestrator-path>\data\pending\<service>.json`)
-2. **For each distinct error**, use the gcloud-logs MCP tools to fetch additional context:
+1. **Initialize docs/AUTOMATED_PATCHES.md** if it doesn't exist:
+   - Check if `docs/AUTOMATED_PATCHES.md` exists in this workspace
+   - If not, copy the template from `<orchestrator-path>\templates\AUTOMATED_PATCHES.md`
+   - This file tracks all automated patches made to this service
+2. **Read the pending errors file** specified in the launch prompt (e.g., `<orchestrator-path>\data\pending\<service>.json`)
+3. **For each distinct error**, use the gcloud-logs MCP tools to fetch additional context:
    - Surrounding logs (before and after the error)
    - Related requests from the same user/session
    - Similar errors from the past
-3. **Classify each error** into one of three categories:
+4. **Classify each error** into one of three categories:
    - **User Error**: Something the user did wrong (wrong URL, invalid input, unauthorized access attempt)
    - **System Bug**: Actual defect in our code that needs fixing
    - **External Factor**: Network issues, third-party service failures, GCP outages
-4. **Implement the appropriate response** for each error:
+5. **Implement the appropriate response** for each error:
    - **User Error**: Add exception handler that returns a helpful error message, log with AUTOMATED_PATCH_APPLIED
    - **System Bug**: Fix the actual bug in the code, log with AUTOMATED_PATCH_APPLIED
    - **External Factor**: Add monitoring/alerting, no code changes needed, document for awareness
-5. **For ALL patches**: Add consistent logging with `AUTOMATED_PATCH_APPLIED` event type
-6. **Update docs/AUTOMATED_PATCHES.md** in this workspace with investigation findings and patches made
-7. **Check for related service changes**: If backend changes require frontend updates, note this
-8. **Run the MIT workflow** to audit, commit, push, and deploy changes
+6. **For ALL patches**: Add consistent logging with `AUTOMATED_PATCH_APPLIED` event type
+7. **Update docs/AUTOMATED_PATCHES.md** in this workspace with investigation findings and patches made
+8. **Check for related service changes**: If backend changes require frontend updates, note this
+9. **Run the push workflow** to audit, commit, push, and deploy changes
 
 ## Investigation Guidelines
 

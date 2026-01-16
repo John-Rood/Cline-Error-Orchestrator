@@ -1,6 +1,8 @@
 {
   "provider": "gcp",
-  "gcp_project": "your-gcp-project-id",
+
+  "_comment_gcp": "Use this field for GCP provider",
+  "gcp_project": "vectorvault-361ab",
 
   "_comment_aws": "Use these fields for AWS provider",
   "aws_log_group": "/aws/lambda/my-function",
@@ -12,7 +14,7 @@
 
   "polling_interval_minutes": 5,
   "ide_command": "code",
-  "error_orchestrator_path": "C:/Users/YourName/error-orchestrator",
+  "error_orchestrator_path": "C:/Users/YourName/cline-error-orchestrator",
   "services": {
     "your-backend-service": {
       "workspace": "C:/path/to/your/backend",
