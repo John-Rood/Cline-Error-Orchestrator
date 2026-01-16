@@ -76,10 +76,19 @@ That's it! When an error occurs in GCP, your computer will automatically open VS
 
 ## Cloud Agnostic
 
-This tool uses a provider plugin system. Currently ships with:
-- **GCP** (via `providers/gcp.ps1`)
+This tool works with any cloud provider. We ship with support for:
 
-To add AWS or Azure support, simply create `scripts/providers/aws.ps1` that returns a list of error objects.
+### 1. Google Cloud Platform (GCP)
+Uses `gcloud logging read` to fetch Cloud Run/Cloud Functions errors.
+- **Config**: `"provider": "gcp"`, `"gcp_project": "my-project"`
+
+### 2. Amazon Web Services (AWS)
+Uses `aws logs filter-log-events` to fetch CloudWatch logs.
+- **Config**: `"provider": "aws"`, `"aws_log_group": "/aws/lambda/my-app"`, `"aws_region": "us-east-1"`
+
+### 3. Microsoft Azure
+Uses `az monitor log-analytics query` to fetch Application Insights errors.
+- **Config**: `"provider": "azure"`, `"azure_workspace_id": "GUID"`, `"azure_resource_group": "my-rg"`
 
 ## License
 

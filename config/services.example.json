@@ -1,6 +1,15 @@
 {
   "provider": "gcp",
   "gcp_project": "your-gcp-project-id",
+
+  "_comment_aws": "Use these fields for AWS provider",
+  "aws_log_group": "/aws/lambda/my-function",
+  "aws_region": "us-east-1",
+
+  "_comment_azure": "Use these fields for Azure provider",
+  "azure_workspace_id": "your-workspace-guid",
+  "azure_resource_group": "your-resource-group",
+
   "polling_interval_minutes": 5,
   "ide_command": "code",
   "error_orchestrator_path": "C:/Users/YourName/error-orchestrator",
