@@ -1,8 +1,22 @@
 # Cline Error Orchestrator
 
-**Automated error detection, routing, and AI-powered investigation.**
+**Self-healing cloud services powered by AI.**
 
-This tool polls your cloud provider (GCP, AWS, etc.) for errors, deduplicates them, and **automatically launches VS Code with Cline** to investigate and fix issues in the correct repository—with zero manual intervention.
+This tool creates a fully automated error resolution pipeline: detect errors → investigate with AI → fix the code → deploy a new instance. Your cloud services fix themselves while you sleep.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SELF-HEALING LOOP                                │
+│                                                                     │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐   │
+│   │  DETECT  │────▶│INVESTIGATE────▶│   FIX    │────▶│  DEPLOY  │   │
+│   │  errors  │     │  w/ Cline│     │  code    │     │  new ver │   │
+│   └──────────┘     └──────────┘     └──────────┘     └──────────┘   │
+│        │                                                   │        │
+│        └───────────────────────────────────────────────────┘        │
+│                         (repeat)                                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ## What It Does
 
@@ -12,18 +26,6 @@ This tool polls your cloud provider (GCP, AWS, etc.) for errors, deduplicates th
 4. **Launches** VS Code and triggers Cline to investigate automatically
 5. **Fixes** the issue (User Error, System Bug, or External Factor) and documents it
 6. **Deploys** the fix by triggering your CI/CD workflow (e.g., `mit` workflow)
-
-## Self-Healing Cloud Services
-
-This isn't just an error reporter—it's a **Full Lifecycle Self-Healing System**.
-
-When an error occurs:
-1. **Detection**: The orchestrator catches the error from your cloud logs.
-2. **Investigation**: It launches Cline to analyze the codebase and root cause.
-3. **Remediation**: Cline implements the fix (e.g., adding an exception handler or fixing a null pointer).
-4. **Deployment**: Cline automatically triggers your deployment workflow (CI/CD) to push the fix to production.
-
-**Result:** A production error is detected, fixed, and deployed without you waking up.
 
 ## Quick Start
 
@@ -86,6 +88,37 @@ That's it! When an error occurs in GCP, your computer will automatically open VS
 - PowerShell 5.1+
 - Cloud Provider CLI (e.g., [gcloud](https://cloud.google.com/sdk/docs/install) for GCP)
 - VS Code with [Cline Extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev)
+
+## Full Lifecycle: Self-Healing in Action
+
+Here's how the complete automated loop works:
+
+1. **Error Detected**: A user hits a bug in production. The error is logged.
+2. **Orchestrator Polls**: Every 5 minutes, `poll_errors.ps1` checks cloud logs.
+3. **Cline Launches**: VS Code opens in the correct repo, Cline receives the task.
+4. **AI Investigates**: Cline reads logs, classifies the error, and writes a fix.
+5. **CI/CD Triggers**: The investigation workflow calls your deploy workflow (e.g., `mit`).
+6. **New Version Deploys**: Your cloud service is updated with the fix.
+7. **Loop Repeats**: The orchestrator continues monitoring for new errors.
+
+**Result**: Production errors get fixed and deployed automatically—no human intervention required.
+
+### Setting Up CI/CD Integration
+
+The investigation workflow (`workflows/investigate.md`) ends by calling your CI/CD workflow. Configure a deploy script in your service config:
+
+```json
+{
+  "services": {
+    "my-backend": {
+      "workspace": "C:/Projects/my-backend",
+      "deploy_script": "deploy.ps1"
+    }
+  }
+}
+```
+
+Or use a Cline workflow like `mit` that handles commit → push → deploy.
 
 ## Cloud Agnostic
 
