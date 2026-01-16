@@ -1,12 +1,12 @@
 # Cline Error Orchestrator
 
-**Automated error detection, routing, and AI-powered investigation for GCP Cloud Run.**
+**Automated error detection, routing, and AI-powered investigation.**
 
-This tool polls Google Cloud Logging for errors, deduplicates them, and **automatically launches VS Code with Cline** to investigate and fix issues in the correct repository—with zero manual intervention.
+This tool polls your cloud provider (GCP, AWS, etc.) for errors, deduplicates them, and **automatically launches VS Code with Cline** to investigate and fix issues in the correct repository—with zero manual intervention.
 
 ## What It Does
 
-1. **Detects** errors in GCP Cloud Logging (ERROR/CRITICAL) every 5 minutes
+1. **Detects** errors in your logs (ERROR/CRITICAL) every 5 minutes
 2. **Deduplicates** repeated errors so you don't get spammed
 3. **Routes** the issue to the correct local codebase (e.g., backend vs frontend)
 4. **Launches** VS Code and triggers Cline to investigate automatically
@@ -31,10 +31,11 @@ Create your configuration file:
 Copy-Item config\services.example.json config\services.json
 ```
 
-Edit `config\services.json` to map your GCP services to local folders:
+Edit `config\services.json` to map your services to local folders:
 
 ```json
 {
+  "provider": "gcp",
   "gcp_project": "your-gcp-project-id",
   "services": {
     "my-backend-service": {
@@ -70,8 +71,15 @@ That's it! When an error occurs in GCP, your computer will automatically open VS
 
 - Windows 10/11
 - PowerShell 5.1+
-- [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) (authenticated)
+- Cloud Provider CLI (e.g., [gcloud](https://cloud.google.com/sdk/docs/install) for GCP)
 - VS Code with [Cline Extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev)
+
+## Cloud Agnostic
+
+This tool uses a provider plugin system. Currently ships with:
+- **GCP** (via `providers/gcp.ps1`)
+
+To add AWS or Azure support, simply create `scripts/providers/aws.ps1` that returns a list of error objects.
 
 ## License
 

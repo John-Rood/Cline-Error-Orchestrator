@@ -26,52 +26,45 @@ if (-not (Test-Path $ConfigPath)) {
 }
 
 $Config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
-$GcpProject = $Config.gcp_project
 $PollingIntervalMinutes = $Config.polling_interval_minutes
 $Services = $Config.services
+$Provider = if ($Config.provider) { $Config.provider } else { "gcp" }
 
 if ($Verbose) {
     Write-Host "Configuration loaded:"
-    Write-Host "  GCP Project: $GcpProject"
+    Write-Host "  Provider: $Provider"
     Write-Host "  Polling Interval: $PollingIntervalMinutes minutes"
     Write-Host "  Services: $($Services.PSObject.Properties.Name -join ', ')"
 }
 
 # Calculate time window
 $LookbackMinutes = $PollingIntervalMinutes + $BufferMinutes
-$StartTime = (Get-Date).AddMinutes(-$LookbackMinutes).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$StartTime = (Get-Date).AddMinutes(-$LookbackMinutes).ToUniversalTime()
 
 if ($Verbose) {
     Write-Host "Querying logs from: $StartTime (last $LookbackMinutes minutes)"
 }
 
-# Build gcloud filter - only ERROR and CRITICAL from Cloud Run
-$Filter = "severity>=ERROR AND resource.type=`"cloud_run_revision`" AND timestamp>=`"$StartTime`""
+# Load provider script
+$ProviderScript = Join-Path $ScriptDir "providers\$Provider.ps1"
+if (-not (Test-Path $ProviderScript)) {
+    Write-Error "Provider script not found: $ProviderScript"
+    exit 1
+}
 
-# Execute gcloud logging read
+# Execute provider fetch
 try {
-    $GcloudCmd = "gcloud logging read `"$Filter`" --project=$GcpProject --format=json --limit=500"
-    if ($Verbose) { Write-Host "Executing: $GcloudCmd" }
-    
-    $LogOutput = Invoke-Expression $GcloudCmd 2>&1
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "gcloud command failed: $LogOutput"
-        exit 1
-    }
-    
-    # Parse JSON output
-    if ([string]::IsNullOrWhiteSpace($LogOutput) -or $LogOutput -eq "[]") {
-        if ($Verbose) { Write-Host "No errors found in the last $LookbackMinutes minutes." }
-        exit 0
-    }
-    
-    $LogEntries = $LogOutput | ConvertFrom-Json
+    $LogEntries = & $ProviderScript -Config $Config -StartTime $StartTime -Verbose:$Verbose
     if ($Verbose) { Write-Host "Found $($LogEntries.Count) log entries" }
 }
 catch {
-    Write-Error "Failed to query GCP logs: $_"
+    Write-Error "Failed to execute provider script: $_"
     exit 1
+}
+
+if ($LogEntries.Count -eq 0) {
+    if ($Verbose) { Write-Host "No errors found." }
+    exit 0
 }
 
 # Function to normalize traceback line (remove variable parts)

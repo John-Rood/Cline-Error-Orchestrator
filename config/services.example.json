@@ -1,4 +1,5 @@
 {
+  "provider": "gcp",
   "gcp_project": "your-gcp-project-id",
   "polling_interval_minutes": 5,
   "ide_command": "code",
