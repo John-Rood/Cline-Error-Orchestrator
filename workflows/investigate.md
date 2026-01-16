@@ -139,17 +139,6 @@ After investigation, add an entry to `docs/AUTOMATED_PATCHES.md`:
 ---
 ```
 
-### Cross-Repository Coordination
-
-If the backend patch requires frontend changes (e.g., handling new error response):
-
-1. Complete the backend investigation and patches first
-2. Document the required frontend changes in AUTOMATED_PATCHES.md with `Related Service Change: Yes`
-3. After MIT workflow completes for backend:
-   - Open the related frontend workspace
-   - The frontend investigation should implement handling for the new backend error response
-   - Reference the backend patch ID in the frontend patch entry
-
 ### Logging Event Schema
 
 All automated patches MUST log this structure for consistent monitoring:

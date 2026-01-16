@@ -55,11 +55,13 @@ Edit `config\services.json` to map your **cloud services** to **local codebases*
   "services": {
     "my-backend-service": {
       "workspace": "C:/Projects/my-backend",
-      "type": "backend"
+      "workflow": "investigate.md",
+      "deploy_script": "deploy.ps1"
     },
-    "my-frontend-service": {
-      "workspace": "C:/Projects/my-frontend",
-      "type": "frontend"
+    "my-api-service": {
+      "workspace": "C:/Projects/my-api",
+      "workflow": "investigate.md",
+      "deploy_script": null
     }
   }
 }

@@ -2,7 +2,7 @@
   "provider": "gcp",
 
   "_comment_gcp": "Use this field for GCP provider",
-  "gcp_project": "vectorvault-361ab",
+  "gcp_project": "your-gcp-project-id",
 
   "_comment_aws": "Use these fields for AWS provider",
   "aws_log_group": "/aws/lambda/my-function",
@@ -16,20 +16,14 @@
   "ide_command": "code",
   "error_orchestrator_path": "C:/Users/YourName/cline-error-orchestrator",
   "services": {
-    "your-backend-service": {
+    "my-backend-service": {
       "workspace": "C:/path/to/your/backend",
-      "type": "backend",
       "workflow": "investigate.md",
-      "related_frontend": "your-frontend-service",
-      "patches_doc": "docs/AUTOMATED_PATCHES.md",
       "deploy_script": "deploy.ps1"
     },
-    "your-frontend-service": {
+    "my-frontend-service": {
       "workspace": "C:/path/to/your/frontend",
-      "type": "frontend",
-      "workflow": "investigate-frontend.md",
-      "related_backend": "your-backend-service",
-      "patches_doc": "docs/AUTOMATED_PATCHES.md",
+      "workflow": "investigate.md",
       "deploy_script": null
     }
   }
