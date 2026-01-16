@@ -9,7 +9,7 @@ This tool creates a fully automated error resolution pipeline: detect errors →
 │                    SELF-HEALING LOOP                                │
 │                                                                     │
 │   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐   │
-│   │  DETECT  │────▶│INVESTIGATE────▶│   FIX    │────▶│  DEPLOY  │   │
+│   │  DETECT  │────▶│INVESTIGATE───▶│   FIX    │────▶│  DEPLOY  │   │
 │   │  errors  │     │  w/ Cline│     │  code    │     │  new ver │   │
 │   └──────────┘     └──────────┘     └──────────┘     └──────────┘   │
 │        │                                                   │        │
@@ -73,11 +73,11 @@ Install the scheduled task to start polling:
 .\scripts\setup_task_scheduler.ps1 -Install -AutoLaunch
 ```
 
-That's it! When an error occurs in GCP, your computer will automatically open VS Code, launch Cline, and start fixing it.
+That's it! When an error occurs, your computer will automatically open VS Code, launch Cline, and start fixing it.
 
 ## Key Scripts
 
-- `poll_errors.ps1`: Polls GCP and queues new errors
+- `poll_errors.ps1`: Polls your cloud provider and queues new errors
 - `launch_investigation.ps1`: Launches VS Code + Cline automation
 - `status.ps1`: Shows current status and pending errors
 - `run_now.ps1`: Manually trigger a poll immediately
