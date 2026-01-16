@@ -1,5 +1,5 @@
 1. Audit the work that was done. Ensure every task that was planned was implemmented and all the work was done.
 2. As you inspect the work that was done, be on the look out for bugs or errors and make a list of them all. After the list is complete, fix them all, then start the audit over again. When the audit clears without revisions, go to step 3. 
 3. Make a simple github title and description based on the work we've done since the last commit (or since the beginning of conversation history is no other commits made in this conversation). Then make commit by command line with that title and description. If your work was in a different directory, then you need to make a commit for and in the other directory.
-4. After your commit is accepted, push it. Sometimes it catches on push calls so add a 5 second time out to push calls (Wait-Process -Timeout 5)
+4. After your commit is accepted, push it. Sometimes it catches on push calls so add a 10 second time out to push calls (Wait-Process -Timeout 10)
 5. If you push a repo that has a deploy script, run the deploy script and you dont need approval to run it.
