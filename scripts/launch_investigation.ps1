@@ -67,6 +67,7 @@ if (-not $Services.PSObject.Properties[$Service]) {
 
 $ServiceConfig = $Services.$Service
 $WorkspacePath = $ServiceConfig.workspace
+$CustomWorkflow = if ($ServiceConfig.workflow) { $ServiceConfig.workflow } else { "investigate.md" }
 
 # Validate workspace exists
 if (-not (Test-Path $WorkspacePath)) {
@@ -118,15 +119,15 @@ if ($NoLaunch) {
     exit 0
 }
 
-# Build the investigation prompt
+# Build the investigation prompt using custom workflow if defined
 $Prompt = @"
-/investigate.md
+/$CustomWorkflow
 
 Investigate $ErrorCount new error(s) in service: $Service
 Error types: $ErrorTypes
 Pending errors file: $PendingFile
 
-Read the pending errors file, analyze each distinct error, classify as User Error/System Bug/External Factor, and recommend appropriate patches. Document findings in AUTOMATED_PATCHES.md, then run the mit workflow.
+Read the pending errors file, analyze each distinct error, classify as User Error/System Bug/External Factor, and recommend appropriate patches. Document findings in AUTOMATED_PATCHES.md, then run the push workflow.
 "@
 
 Write-Host "=== Launching Investigation ==="

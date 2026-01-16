@@ -80,6 +80,32 @@ Cloud Service Name  →  Local Codebase
 
 When the orchestrator detects an error from `my-backend-service`, it knows to open `C:/Projects/my-backend` in VS Code so Cline can fix the actual source code.
 
+#### Custom Workflows Per Service
+
+By default, the orchestrator uses `investigate.md` as the Cline workflow. But you can define a **custom workflow** for each service:
+
+```json
+{
+  "services": {
+    "my-backend-service": {
+      "workspace": "C:/Projects/my-backend",
+      "workflow": "investigate.md"
+    },
+    "my-frontend-service": {
+      "workspace": "C:/Projects/my-frontend",
+      "workflow": "investigate-frontend.md"
+    }
+  }
+}
+```
+
+This is useful when different services need different investigation strategies. For example:
+- A backend might need database checks
+- A frontend might need browser console analysis
+- A microservice might have unique deployment steps
+
+Place custom workflows in your Cline workflows directory or include them with the service repo.
+
 ### 3. Enable Automation
 
 Install the scheduled task to start polling:
