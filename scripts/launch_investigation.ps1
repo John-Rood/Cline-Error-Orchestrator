@@ -156,18 +156,29 @@ Start-Sleep -Milliseconds 500
 
 # 6. Type the investigation prompt
 # SendKeys has special characters that need escaping: + ^ % ~ ( ) { }
-# We'll replace them with their escaped versions
+# We must escape curly braces FIRST before other replacements add more braces
 Write-Host "Typing investigation prompt..."
-$EscapedPrompt = $Prompt -replace '\+', '{+}' `
-                         -replace '\^', '{^}' `
-                         -replace '%', '{%}' `
-                         -replace '~', '{~}' `
-                         -replace '\(', '{(}' `
-                         -replace '\)', '{)}' `
-                         -replace '\{', '{{}' `
-                         -replace '\}', '{}}' `
-                         -replace "`n", '{ENTER}' `
-                         -replace "`r", ''
+
+# First, escape curly braces (must use placeholder to avoid double replacement)
+$EscapedPrompt = $Prompt -replace '\{', '<<<LBRACE>>>' `
+                         -replace '\}', '<<<RBRACE>>>'
+
+# Now escape other special SendKeys characters
+$EscapedPrompt = $EscapedPrompt -replace '\+', '{+}' `
+                                -replace '\^', '{^}' `
+                                -replace '%', '{%}' `
+                                -replace '~', '{~}' `
+                                -replace '\(', '{(}' `
+                                -replace '\)', '{)}'
+
+# Now replace the placeholders with properly escaped braces
+$EscapedPrompt = $EscapedPrompt -replace '<<<LBRACE>>>', '{{}'  `
+                                -replace '<<<RBRACE>>>', '{}}'
+
+# Finally replace newlines
+$EscapedPrompt = $EscapedPrompt -replace "`r`n", '{ENTER}' `
+                                -replace "`n", '{ENTER}' `
+                                -replace "`r", ''
 
 # SendKeys doesn't handle very long strings well, so we'll send it in chunks
 $ChunkSize = 100

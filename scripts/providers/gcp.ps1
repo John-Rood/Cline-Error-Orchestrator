@@ -12,25 +12,56 @@ if ($Verbose) {
 }
 
 # Build gcloud filter - only ERROR and CRITICAL from Cloud Run
-$Filter = "severity>=ERROR AND resource.type=`"cloud_run_revision`" AND timestamp>=`"$($StartTime.ToString("yyyy-MM-ddTHH:mm:ssZ"))`""
+# Use a simpler format for timestamp that gcloud can parse
+$TimestampStr = $StartTime.ToString("yyyy-MM-dd")
+$Filter = 'severity>=ERROR AND resource.type="cloud_run_revision" AND timestamp>="' + $TimestampStr + '"'
 
 try {
-    $GcloudCmd = "gcloud logging read `"$Filter`" --project=$GcpProject --format=json --limit=500"
-    if ($Verbose) { Write-Host "Executing: $GcloudCmd" }
+    if ($Verbose) { Write-Host "Filter: $Filter" }
     
-    $LogOutput = Invoke-Expression $GcloudCmd 2>&1
+    # Find gcloud - check common paths
+    $GcloudPath = $null
+    $PossiblePaths = @(
+        "$env:LOCALAPPDATA\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd",
+        "C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd",
+        "C:\Program Files\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd"
+    )
+    
+    foreach ($Path in $PossiblePaths) {
+        if (Test-Path $Path) {
+            $GcloudPath = $Path
+            break
+        }
+    }
+    
+    if (-not $GcloudPath) {
+        # Try to find in PATH
+        $GcloudPath = (Get-Command gcloud -ErrorAction SilentlyContinue).Source
+    }
+    
+    if (-not $GcloudPath) {
+        Write-Error "gcloud not found. Please install Google Cloud SDK."
+        return @()
+    }
+    
+    if ($Verbose) { Write-Host "Using gcloud at: $GcloudPath" }
+    
+    # Execute gcloud command - pass filter as single quoted string
+    $LogOutput = & $GcloudPath logging read $Filter --project=$GcpProject --format=json --limit=500 2>&1
     
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "gcloud command failed: $LogOutput"
+        $ErrorStr = $LogOutput -join "`n"
+        Write-Error "gcloud command failed: $ErrorStr"
         return @()
     }
     
     # Parse JSON output
-    if ([string]::IsNullOrWhiteSpace($LogOutput) -or $LogOutput -eq "[]") {
+    $OutputStr = $LogOutput -join "`n"
+    if ([string]::IsNullOrWhiteSpace($OutputStr) -or $OutputStr -eq "[]") {
         return @()
     }
     
-    $LogEntries = $LogOutput | ConvertFrom-Json
+    $LogEntries = $OutputStr | ConvertFrom-Json
     return $LogEntries
 }
 catch {
