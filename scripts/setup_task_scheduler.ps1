@@ -85,7 +85,8 @@ if ($Install) {
     $PollScript = Join-Path $ScriptDir "poll_errors.ps1"
     $Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PollScript`""
     if ($AutoLaunch) {
-        $Arguments += " -AutoLaunch"
+        # Use -LaunchAll to investigate all services with errors, not just the first
+        $Arguments += " -LaunchAll"
     }
     
     Write-Host "Installing scheduled task: $TaskName"

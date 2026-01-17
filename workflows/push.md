@@ -38,8 +38,9 @@ git commit -m "Title: Brief summary" -m "Body: Detailed description of changes"
 
 ### Step 4: Push
 
+Run the push command and proceed with the workflow - don't wait for completion:
 ```powershell
-Start-Process -NoNewWindow -Wait -FilePath "git" -ArgumentList "push origin main" -PassThru | Wait-Process -Timeout 10 -ErrorAction SilentlyContinue
+git push origin main
 ```
 
 ### Step 5: Deploy (if applicable)
