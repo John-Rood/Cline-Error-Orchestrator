@@ -9,7 +9,7 @@ This tool creates a fully automated error resolution pipeline: detect errors →
 │                    SELF-HEALING LOOP                                │
 │                                                                     │
 │   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐   │
-│   │  DETECT  │─────▶│INVESTIGATE───▶│   FIX    │────▶│  DEPLOY  │   │
+│   │  DETECT  │────▶│INVESTIGATE────▶│   FIX    │────▶│  DEPLOY  │   │
 │   │  errors  │     │  w/ Cline│     │  code    │     │  new ver │   │
 │   └──────────┘     └──────────┘     └──────────┘     └──────────┘   │
 │        │                                                   │        │
