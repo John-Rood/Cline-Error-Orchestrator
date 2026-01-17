@@ -154,39 +154,16 @@ Write-Host "Focusing Cline input (Ctrl+')..."
 [System.Windows.Forms.SendKeys]::SendWait("^'")
 Start-Sleep -Milliseconds 500
 
-# 6. Type the investigation prompt
-# SendKeys has special characters that need escaping: + ^ % ~ ( ) { }
-# We must escape curly braces FIRST before other replacements add more braces
-Write-Host "Typing investigation prompt..."
+# 6. Type the investigation prompt using clipboard (SendKeys has issues with special characters)
+Write-Host "Copying investigation prompt to clipboard..."
 
-# First, escape curly braces (must use placeholder to avoid double replacement)
-$EscapedPrompt = $Prompt -replace '\{', '<<<LBRACE>>>' `
-                         -replace '\}', '<<<RBRACE>>>'
+# Copy prompt to clipboard
+Set-Clipboard -Value $Prompt
 
-# Now escape other special SendKeys characters
-$EscapedPrompt = $EscapedPrompt -replace '\+', '{+}' `
-                                -replace '\^', '{^}' `
-                                -replace '%', '{%}' `
-                                -replace '~', '{~}' `
-                                -replace '\(', '{(}' `
-                                -replace '\)', '{)}'
-
-# Now replace the placeholders with properly escaped braces
-$EscapedPrompt = $EscapedPrompt -replace '<<<LBRACE>>>', '{{}'  `
-                                -replace '<<<RBRACE>>>', '{}}'
-
-# Finally replace newlines
-$EscapedPrompt = $EscapedPrompt -replace "`r`n", '{ENTER}' `
-                                -replace "`n", '{ENTER}' `
-                                -replace "`r", ''
-
-# SendKeys doesn't handle very long strings well, so we'll send it in chunks
-$ChunkSize = 100
-for ($i = 0; $i -lt $EscapedPrompt.Length; $i += $ChunkSize) {
-    $Chunk = $EscapedPrompt.Substring($i, [Math]::Min($ChunkSize, $EscapedPrompt.Length - $i))
-    [System.Windows.Forms.SendKeys]::SendWait($Chunk)
-    Start-Sleep -Milliseconds 50
-}
+# Paste using Ctrl+V
+Write-Host "Pasting prompt..."
+[System.Windows.Forms.SendKeys]::SendWait("^v")
+Start-Sleep -Milliseconds 500
 
 # 7. Press Enter to submit
 Write-Host "Submitting task..."
