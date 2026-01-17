@@ -17,6 +17,10 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $OrchestratorRoot = Split-Path -Parent $ScriptDir
 
+# File paths for state tracking
+$LastPollPath = Join-Path $OrchestratorRoot "data\last_poll.json"
+$ErrorStatusPath = Join-Path $OrchestratorRoot "data\error_status.json"
+
 # Load configuration
 $ConfigPath = Join-Path $OrchestratorRoot "config\services.json"
 if (-not (Test-Path $ConfigPath)) {
@@ -37,12 +41,39 @@ if ($Verbose) {
     Write-Host "  Services: $($Services.PSObject.Properties.Name -join ', ')"
 }
 
-# Calculate time window
-$LookbackMinutes = $PollingIntervalMinutes + $BufferMinutes
-$StartTime = (Get-Date).AddMinutes(-$LookbackMinutes).ToUniversalTime()
+# Calculate time window - use last poll time if available (handles sleep/wake)
+# This ensures we don't miss errors that occurred while the computer was asleep
+$DefaultLookbackMinutes = $PollingIntervalMinutes + $BufferMinutes
+$StartTime = $null
 
-if ($Verbose) {
-    Write-Host "Querying logs from: $StartTime (last $LookbackMinutes minutes)"
+if (Test-Path $LastPollPath) {
+    try {
+        $LastPollData = Get-Content $LastPollPath -Raw | ConvertFrom-Json
+        $LastPollTime = [DateTime]::Parse($LastPollData.last_poll_time)
+        
+        # Calculate how long ago the last poll was
+        $MinutesSinceLastPoll = ((Get-Date) - $LastPollTime).TotalMinutes
+        
+        if ($MinutesSinceLastPoll -gt $DefaultLookbackMinutes) {
+            # We've been asleep or missed polls - look back to last poll time (plus buffer)
+            $StartTime = $LastPollTime.AddMinutes(-$BufferMinutes).ToUniversalTime()
+            if ($Verbose) { 
+                Write-Host "Detected gap since last poll ($([Math]::Round($MinutesSinceLastPoll, 1)) min ago)"
+                Write-Host "Looking back to last poll time: $StartTime"
+            }
+        }
+    }
+    catch {
+        Write-Warning "Could not read last_poll.json, using default lookback: $_"
+    }
+}
+
+# Fall back to default lookback if no last poll time or if within normal interval
+if (-not $StartTime) {
+    $StartTime = (Get-Date).AddMinutes(-$DefaultLookbackMinutes).ToUniversalTime()
+    if ($Verbose) {
+        Write-Host "Querying logs from: $StartTime (last $DefaultLookbackMinutes minutes)"
+    }
 }
 
 # Load provider script
@@ -215,6 +246,22 @@ function Get-ErrorInfo {
 $SeenErrorsPath = Join-Path $OrchestratorRoot "data\seen_errors.json"
 $SeenErrors = @{}
 
+# Load error status tracking (pending/in_progress/done)
+$ErrorStatus = @{}
+if (Test-Path $ErrorStatusPath) {
+    try {
+        $ErrorStatusData = Get-Content $ErrorStatusPath -Raw | ConvertFrom-Json
+        foreach ($Property in $ErrorStatusData.PSObject.Properties) {
+            $ErrorStatus[$Property.Name] = $Property.Value
+        }
+        if ($Verbose) { Write-Host "Loaded $($ErrorStatus.Count) error status entries" }
+    }
+    catch {
+        Write-Warning "Could not load error_status.json, starting fresh: $_"
+        $ErrorStatus = @{}
+    }
+}
+
 if (Test-Path $SeenErrorsPath) {
     try {
         $SeenErrorsData = Get-Content $SeenErrorsPath -Raw | ConvertFrom-Json
@@ -292,6 +339,19 @@ foreach ($Entry in $LogEntries) {
             }
             sample_log_entry = $ErrorInfo.RawEntry
         }
+        
+        # Track error status with timestamps (pending/in_progress/done)
+        # This prevents race conditions when multiple AI instances work on errors
+        $ErrorStatus[$Signature] = @{
+            status = "pending"
+            service = $ServiceName
+            error_type = $ErrorInfo.ErrorType
+            timestamps = @{
+                created_at = $Now
+                started_at = $null
+                completed_at = $null
+            }
+        }
     }
 }
 
@@ -319,9 +379,20 @@ foreach ($StaleFile in $StalePendingFiles) {
 if ($TotalNewErrors -eq 0 -and $ServicesToLaunch.Count -eq 0) {
     if ($Verbose) { Write-Host "No new distinct errors found and no stale pending files." }
     
-    # Still save updated seen_errors (for counts/timestamps)
-    if (-not $WhatIf -and $UpdatedSignatures.Count -gt 0) {
-        $SeenErrors | ConvertTo-Json -Depth 10 | Set-Content $SeenErrorsPath
+    if (-not $WhatIf) {
+        # Save updated seen_errors (for counts/timestamps)
+        if ($UpdatedSignatures.Count -gt 0) {
+            $SeenErrors | ConvertTo-Json -Depth 10 | Set-Content $SeenErrorsPath
+        }
+        
+        # Always save last poll timestamp - critical for sleep/wake tracking
+        # If computer sleeps and wakes up, we'll look back to this time
+        $LastPollData = @{
+            last_poll_time = $Now
+            errors_found = 0
+        }
+        $LastPollData | ConvertTo-Json | Set-Content $LastPollPath
+        if ($Verbose) { Write-Host "Updated last poll time: $Now" }
     }
     Write-Host "Done. No actions needed."
     exit 0
@@ -338,10 +409,23 @@ foreach ($ServiceName in $NewErrorsByService.Keys) {
     Write-Host "  $ServiceName : $($Errors.Count) errors ($ErrorTypes)"
 }
 
-# Write pending files and save seen_errors
+# Write pending files and save state files
 if (-not $WhatIf) {
     # Save seen errors
     $SeenErrors | ConvertTo-Json -Depth 10 | Set-Content $SeenErrorsPath
+    
+    # Save error status tracking (pending/in_progress/done with timestamps)
+    $ErrorStatus | ConvertTo-Json -Depth 10 | Set-Content $ErrorStatusPath
+    if ($Verbose) { Write-Host "Updated error status file: $ErrorStatusPath" }
+    
+    # Save last poll timestamp - this handles sleep/wake scenarios
+    # On wake, we'll look back to this time instead of just the polling interval
+    $LastPollData = @{
+        last_poll_time = $Now
+        errors_found = $TotalNewErrors
+    }
+    $LastPollData | ConvertTo-Json | Set-Content $LastPollPath
+    if ($Verbose) { Write-Host "Updated last poll time: $Now" }
     
     # Write pending files for each service
     foreach ($ServiceName in $NewErrorsByService.Keys) {

@@ -70,6 +70,53 @@ else {
 }
 Write-Host ""
 
+# Last Poll Time (for sleep/wake tracking)
+Write-Host "Last Poll:"
+$LastPollPath = Join-Path $OrchestratorRoot "data\last_poll.json"
+if (Test-Path $LastPollPath) {
+    $LastPollData = Get-Content $LastPollPath -Raw | ConvertFrom-Json
+    $LastPollTime = [DateTime]::Parse($LastPollData.last_poll_time)
+    $MinutesAgo = [Math]::Round(((Get-Date) - $LastPollTime).TotalMinutes, 1)
+    Write-Host "  Time: $LastPollTime"
+    Write-Host "  Ago: $MinutesAgo minutes"
+    Write-Host "  Errors found: $($LastPollData.errors_found)"
+}
+else {
+    Write-Host "  Never polled yet"
+}
+Write-Host ""
+
+# Error Status Tracking (pending/in_progress/done)
+Write-Host "Error Status Tracking:"
+$ErrorStatusPath = Join-Path $OrchestratorRoot "data\error_status.json"
+if (Test-Path $ErrorStatusPath) {
+    $ErrorStatus = Get-Content $ErrorStatusPath -Raw | ConvertFrom-Json
+    $TotalErrors = $ErrorStatus.PSObject.Properties.Count
+    
+    $PendingCount = ($ErrorStatus.PSObject.Properties | Where-Object { $_.Value.status -eq "pending" }).Count
+    $InProgressCount = ($ErrorStatus.PSObject.Properties | Where-Object { $_.Value.status -eq "in_progress" }).Count
+    $DoneCount = ($ErrorStatus.PSObject.Properties | Where-Object { $_.Value.status -eq "done" }).Count
+    
+    Write-Host "  Total tracked: $TotalErrors"
+    Write-Host "  Pending: $PendingCount"
+    Write-Host "  In Progress: $InProgressCount"
+    Write-Host "  Done: $DoneCount"
+    
+    # Show in_progress errors (currently being investigated)
+    $InProgress = $ErrorStatus.PSObject.Properties | Where-Object { $_.Value.status -eq "in_progress" }
+    if ($InProgress.Count -gt 0) {
+        Write-Host "  Currently investigating:"
+        foreach ($Entry in $InProgress) {
+            $StartedAt = if ($Entry.Value.timestamps.started_at) { $Entry.Value.timestamps.started_at } else { "Unknown" }
+            Write-Host "    - $($Entry.Value.error_type) in $($Entry.Value.service) (started: $StartedAt)"
+        }
+    }
+}
+else {
+    Write-Host "  No errors tracked yet"
+}
+Write-Host ""
+
 # Seen Errors
 Write-Host "Seen Errors (deduplication):"
 $SeenErrorsPath = Join-Path $OrchestratorRoot "data\seen_errors.json"

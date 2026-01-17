@@ -407,7 +407,70 @@ Cline executes investigation workflow (fully automated!)
 
 ---
 
-### 9.6. Pending Error File Format
+### 9.6. Sleep/Wake Recovery with Last Poll Tracking
+
+The system tracks the last poll timestamp in `data/last_poll.json` to ensure no errors are missed when the computer sleeps and wakes:
+
+```json
+{
+  "last_poll_time": "2026-01-16T22:15:00-05:00",
+  "errors_found": 0
+}
+```
+
+**How it works:**
+
+1. On each poll, the system saves the current timestamp to `last_poll.json`
+2. On the next poll, it reads the last poll time
+3. If more time has passed than the polling interval (e.g., computer was asleep):
+   - Look back to the last poll time instead of just the interval
+   - This catches any errors that occurred during sleep
+4. Normal operation uses the configured polling interval
+
+**Example scenario:**
+- Polling interval: 5 minutes
+- Last poll: 10:00 PM
+- Computer sleeps at 10:02 PM
+- Computer wakes at 8:00 AM
+- Next poll sees 10 hours have passed, queries logs from 10:00 PM to 8:00 AM
+
+### 9.7. Error Status Tracking (Race Condition Prevention)
+
+The system tracks error lifecycle in `data/error_status.json` to prevent race conditions when multiple AI instances might work on the same errors:
+
+**Status Values:**
+- `pending` - Error detected, waiting for investigation to start
+- `in_progress` - AI is currently investigating this error
+- `done` - Investigation complete
+
+**File Structure:**
+```json
+{
+  "abc123def456...": {
+    "status": "in_progress",
+    "service": "my-service",
+    "error_type": "KeyError",
+    "timestamps": {
+      "created_at": "2026-01-16T13:25:00-05:00",
+      "started_at": "2026-01-16T13:30:00-05:00",
+      "completed_at": null
+    }
+  }
+}
+```
+
+**Status Transitions:**
+1. `poll_errors.ps1` creates errors with status `pending` and `created_at` timestamp
+2. `launch_investigation.ps1` marks errors as `in_progress` with `started_at` timestamp
+3. The AI investigation workflow marks errors as `done` with `completed_at` timestamp
+
+**Benefits:**
+- Prevents duplicate investigations of the same error
+- Tracks how long investigations take (started_at to completed_at)
+- Provides audit trail of when errors were handled
+- Allows multiple services to be investigated simultaneously without conflicts
+
+### 9.8. Pending Error File Format
 
 Each `pending/<service>.json` file contains errors awaiting investigation:
 

@@ -18,6 +18,92 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $OrchestratorRoot = Split-Path -Parent $ScriptDir
 
+# File path for error status tracking
+$ErrorStatusPath = Join-Path $OrchestratorRoot "data\error_status.json"
+
+# Function to update error status (pending -> in_progress -> done)
+# This prevents race conditions when multiple AI instances work on errors
+function Update-ErrorStatus {
+    param(
+        [string]$Signature,
+        [string]$NewStatus,  # "pending", "in_progress", or "done"
+        [string]$StatusFilePath
+    )
+    
+    $Now = Get-Date -Format "o"
+    $ErrorStatus = @{}
+    
+    # Load existing status
+    if (Test-Path $StatusFilePath) {
+        try {
+            $ErrorStatusData = Get-Content $StatusFilePath -Raw | ConvertFrom-Json
+            foreach ($Property in $ErrorStatusData.PSObject.Properties) {
+                $ErrorStatus[$Property.Name] = $Property.Value
+            }
+        }
+        catch {
+            Write-Warning "Could not load error_status.json: $_"
+        }
+    }
+    
+    # Update the specific error's status
+    if ($ErrorStatus.ContainsKey($Signature)) {
+        $ErrorStatus[$Signature].status = $NewStatus
+        
+        # Update appropriate timestamp
+        switch ($NewStatus) {
+            "in_progress" { 
+                $ErrorStatus[$Signature].timestamps.started_at = $Now 
+            }
+            "done" { 
+                $ErrorStatus[$Signature].timestamps.completed_at = $Now 
+            }
+        }
+    }
+    else {
+        # Create new entry if it doesn't exist
+        $ErrorStatus[$Signature] = @{
+            status = $NewStatus
+            service = ""
+            error_type = ""
+            timestamps = @{
+                created_at = $Now
+                started_at = if ($NewStatus -eq "in_progress") { $Now } else { $null }
+                completed_at = if ($NewStatus -eq "done") { $Now } else { $null }
+            }
+        }
+    }
+    
+    # Save updated status
+    $ErrorStatus | ConvertTo-Json -Depth 10 | Set-Content $StatusFilePath
+    
+    return $ErrorStatus[$Signature]
+}
+
+# Function to get current error status
+function Get-ErrorStatus {
+    param(
+        [string]$Signature,
+        [string]$StatusFilePath
+    )
+    
+    if (-not (Test-Path $StatusFilePath)) {
+        return $null
+    }
+    
+    try {
+        $ErrorStatusData = Get-Content $StatusFilePath -Raw | ConvertFrom-Json
+        if ($ErrorStatusData.PSObject.Properties[$Signature]) {
+            return $ErrorStatusData.$Signature
+        }
+    }
+    catch {
+        Write-Warning "Could not read error status: $_"
+    }
+    
+    return $null
+}
+
 # Load configuration
 $ConfigPath = Join-Path $OrchestratorRoot "config\services.json"
 if (-not (Test-Path $ConfigPath)) {
@@ -213,6 +299,40 @@ if ($NoLaunch) {
     exit 0
 }
 
+# Mark all errors as "in_progress" before launching investigation
+# This prevents race conditions if another AI instance tries to work on the same errors
+Write-Host "=== Marking Errors as In Progress ==="
+$ErrorsToInvestigate = @()
+foreach ($ErrorItem in $PendingData.errors) {
+    $Signature = $ErrorItem.signature
+    
+    # Check if error is already being worked on
+    $CurrentStatus = Get-ErrorStatus -Signature $Signature -StatusFilePath $ErrorStatusPath
+    if ($CurrentStatus -and $CurrentStatus.status -eq "in_progress") {
+        Write-Host "  SKIP: $($ErrorItem.error_type) (already in_progress)"
+        continue
+    }
+    if ($CurrentStatus -and $CurrentStatus.status -eq "done") {
+        Write-Host "  SKIP: $($ErrorItem.error_type) (already done)"
+        continue
+    }
+    
+    # Mark as in_progress
+    Update-ErrorStatus -Signature $Signature -NewStatus "in_progress" -StatusFilePath $ErrorStatusPath | Out-Null
+    Write-Host "  STARTED: $($ErrorItem.error_type) -> in_progress"
+    $ErrorsToInvestigate += $ErrorItem
+}
+
+# If no errors need investigation, exit
+if ($ErrorsToInvestigate.Count -eq 0) {
+    Write-Host ""
+    Write-Host "All errors are already being investigated or completed."
+    exit 0
+}
+
+$ErrorCount = $ErrorsToInvestigate.Count
+$ErrorTypes = ($ErrorsToInvestigate | ForEach-Object { $_.error_type } | Select-Object -Unique) -join ", "
+
 # Build the investigation prompt using custom workflow if defined
 $Prompt = @"
 /$CustomWorkflow
@@ -220,8 +340,13 @@ $Prompt = @"
 Investigate $ErrorCount new error(s) in service: $Service
 Error types: $ErrorTypes
 Pending errors file: $PendingFile
+Error status file: $ErrorStatusPath
 
-Read the pending errors file, analyze each distinct error, classify as User Error/System Bug/External Factor, and recommend appropriate patches. Document findings in AUTOMATED_PATCHES.md, then run the push workflow.
+Read the pending errors file, analyze each distinct error, classify as User Error/System Bug/External Factor, and recommend appropriate patches. Document findings in AUTOMATED_PATCHES.md.
+
+IMPORTANT: When you complete investigation for each error, mark it as done in the error status file. The AI should update the status file to mark errors as "done" with a completed_at timestamp.
+
+Then run the push workflow.
 "@
 
 Write-Host "=== Launching Investigation ==="

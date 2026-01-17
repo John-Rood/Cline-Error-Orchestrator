@@ -1,9 +1,11 @@
 # User-specific configuration (contains local paths)
 config/services.json
 
-# Runtime data
+# Runtime data (local state files)
 data/seen_errors.json
 data/pending/*.json
+data/last_poll.json
+data/error_status.json
 
 # Keep the directories but not their contents
 !data/.gitkeep

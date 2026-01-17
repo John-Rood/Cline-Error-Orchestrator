@@ -30,7 +30,7 @@ Scan for common issues:
 If issues found → fix them → return to Step 1.
 
 ### Step 3: Commit
-
+Run the command and proceed with the workflow - don't wait for completion
 ```powershell
 git add -A
 git commit -m "Title: Brief summary" -m "Body: Detailed description of changes"

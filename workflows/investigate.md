@@ -17,29 +17,39 @@ This workflow is triggered automatically by the Error Orchestrator when new dist
    - If not, copy the template from `<orchestrator-path>\templates\AUTOMATED_PATCHES.md`
    - This file tracks all automated patches made to this service
 2. **Read the pending errors file** specified in the launch prompt (e.g., `<orchestrator-path>\data\pending\<service>.json`)
-3. **For each distinct error**, use the gcloud-logs MCP tools to fetch additional context:
+3. **Check error status file** to see which errors need investigation:
+   - Read `<orchestrator-path>\data\error_status.json`
+   - Only investigate errors with status "in_progress" (these were marked when investigation was launched)
+   - Skip errors with status "done" (already investigated)
+4. **For each distinct error**, use the gcloud-logs MCP tools to fetch additional context:
    - Surrounding logs (before and after the error)
    - Related requests from the same user/session
    - Similar errors from the past
-4. **Classify each error** into one of three categories:
+5. **Classify each error** into one of three categories:
    - **User Error**: Something the user did wrong (wrong URL, invalid input, unauthorized access attempt)
    - **System Bug**: Actual defect in our code that needs fixing
    - **External Factor**: Network issues, third-party service failures, GCP outages
-5. **Verify the error still exists** before implementing any fix:
+6. **Verify the error still exists** before implementing any fix:
    - Check if the affected code has changed since the error timestamp
    - Use `git log --since="<error_timestamp>" -- <affected_file>` to see recent commits
    - If the code was already modified, the error may already be fixed
-   - If already fixed: Document as "Already Resolved" in AUTOMATED_PATCHES.md and skip to step 9
+   - If already fixed: Document as "Already Resolved" in AUTOMATED_PATCHES.md and skip to step 11
    - Only proceed with a fix if the problematic code still exists
-6. **Implement the appropriate response** for each error:
+7. **Implement the appropriate response** for each error:
    - **User Error**: Add exception handler that returns a helpful error message, log with AUTOMATED_PATCH_APPLIED
    - **System Bug**: Fix the actual bug in the code, log with AUTOMATED_PATCH_APPLIED
    - **External Factor**: Add monitoring/alerting, no code changes needed, document for awareness
-7. **For ALL patches**: Add consistent logging with `AUTOMATED_PATCH_APPLIED` event type
-8. **Update docs/AUTOMATED_PATCHES.md** in this workspace with investigation findings and patches made
-9. **Check for related service changes**: If backend changes require frontend updates, note this
-10. **Run the push workflow** to audit, commit, push, and deploy changes
-11. **Clear the pending errors file** to mark investigation as complete:
+8. **For ALL patches**: Add consistent logging with `AUTOMATED_PATCH_APPLIED` event type
+9. **Update docs/AUTOMATED_PATCHES.md** in this workspace with investigation findings and patches made
+10. **Check for related service changes**: If backend changes require frontend updates, note this
+11. **Mark each error as "done"** in the error status file:
+    - For each error you investigated, update its status in `<orchestrator-path>\data\error_status.json`
+    - Change `status` from "in_progress" to "done"
+    - Set the `timestamps.completed_at` field to the current timestamp
+    - This prevents race conditions and tracks completion time
+    - See "Error Status File Format" section below for details
+12. **Run the push workflow** to audit, commit, push, and deploy changes
+13. **Clear the pending errors file** to mark investigation as complete:
     - Delete the pending file specified in the launch prompt (e.g., `<orchestrator-path>\data\pending\<service>.json`)
     - This prevents the orchestrator from re-launching the same investigation
     - Use: `Remove-Item "<pending-file-path>" -Force` or delete via file tools
@@ -209,3 +219,68 @@ Use this information to understand:
 - `traceback`: The full stack trace for debugging
 - `occurrence_count`: How many times this error occurred (helps prioritize)
 - `sample_log_entry`: Raw log data for additional context
+
+## Error Status File Format
+
+The error status file (`<orchestrator-path>\data\error_status.json`) tracks the lifecycle of each error to prevent race conditions when multiple AI instances work on errors simultaneously.
+
+**Status Values:**
+- `pending` - Error detected, waiting for investigation
+- `in_progress` - AI is currently investigating this error
+- `done` - Investigation complete
+
+**File Structure:**
+```json
+{
+  "abc123def456...": {
+    "status": "in_progress",
+    "service": "my-service",
+    "error_type": "KeyError",
+    "timestamps": {
+      "created_at": "2026-01-16T13:25:00-05:00",
+      "started_at": "2026-01-16T13:30:00-05:00",
+      "completed_at": null
+    }
+  },
+  "xyz789...": {
+    "status": "done",
+    "service": "my-service",
+    "error_type": "ValueError",
+    "timestamps": {
+      "created_at": "2026-01-16T12:00:00-05:00",
+      "started_at": "2026-01-16T12:05:00-05:00",
+      "completed_at": "2026-01-16T12:15:00-05:00"
+    }
+  }
+}
+```
+
+**How to mark an error as done:**
+
+When you complete investigating an error, update the status file:
+
+1. Read the current `error_status.json`
+2. Find the error by its signature (key)
+3. Change `status` to `"done"`
+4. Set `timestamps.completed_at` to the current ISO timestamp
+5. Write the updated JSON back to the file
+
+**Example update (PowerShell):**
+```powershell
+$StatusFile = "<orchestrator-path>\data\error_status.json"
+$Status = Get-Content $StatusFile -Raw | ConvertFrom-Json
+$Now = Get-Date -Format "o"
+
+# Update specific error
+$Status."abc123def456...".status = "done"
+$Status."abc123def456...".timestamps.completed_at = $Now
+
+# Save
+$Status | ConvertTo-Json -Depth 10 | Set-Content $StatusFile
+```
+
+**Why this matters:**
+- Prevents two AI instances from investigating the same error
+- Tracks how long investigations take (started_at to completed_at)
+- Provides audit trail of when errors were handled
+- Allows the orchestrator to skip already-completed errors on re-run
