@@ -109,8 +109,8 @@ if ($Install) {
         $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $Arguments -WorkingDirectory $OrchestratorRoot
         
         # Create a trigger that runs every N minutes indefinitely
-        # We use a daily trigger with repetition to achieve this
-        $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration ([TimeSpan]::MaxValue)
+        # Use 365 days as duration (effectively indefinite, will need renewal if task runs that long)
+        $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration (New-TimeSpan -Days 365)
         
         # Task settings
         $Settings = New-ScheduledTaskSettingsSet `
