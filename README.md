@@ -114,7 +114,19 @@ The investigation workflow automatically creates `docs/AUTOMATED_PATCHES.md` in 
 
 You don't need to pre-create any files—Cline handles it automatically on the first investigation.
 
-### 3. Enable Automation
+### 3. Install Workflows
+
+Copy the workflows to your Cline workflows directory:
+
+```powershell
+Copy-Item workflows\*.md "$env:USERPROFILE\Documents\Cline\Workflows\"
+```
+
+This installs:
+- `investigate.md` - The main error investigation workflow
+- `push.md` - The CI/CD workflow (audit → commit → push → deploy)
+
+### 4. Enable Automation
 
 Install the scheduled task to start polling:
 

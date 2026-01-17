@@ -48,9 +48,3 @@ If the workspace has a `deploy.ps1` script:
 ```powershell
 .\deploy.ps1
 ```
-
-## Notes
-
-- This workflow is called automatically by `investigate.md` after fixes are made
-- Users should have this workflow in their Cline workflows directory
-- The deploy script is optional - set to `null` in config if not needed
