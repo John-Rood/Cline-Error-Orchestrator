@@ -133,39 +133,49 @@ Read the pending errors file, analyze each distinct error, classify as User Erro
 Write-Host "=== Launching Investigation ==="
 Write-Host "Opening VS Code in: $WorkspacePath"
 
-# 1. Open VS Code in the service workspace
+# 1. Copy prompt to clipboard FIRST (before any window switching)
+Write-Host "Copying investigation prompt to clipboard..."
+Set-Clipboard -Value $Prompt
+
+# 2. Open VS Code in the service workspace
 Start-Process $IdeCommand -ArgumentList "`"$WorkspacePath`""
 
-# 2. Wait for VS Code to fully load
+# 3. Wait for VS Code to fully load (longer wait for reliability)
 Write-Host "Waiting $WaitTime seconds for VS Code to load..."
 Start-Sleep -Seconds $WaitTime
 
-# 3. Load SendKeys API
+# 4. Load SendKeys API
 Add-Type -AssemblyName System.Windows.Forms
 
-# 4. Bring VS Code to foreground (helps ensure SendKeys work)
-# Note: This may not always work perfectly depending on Windows settings
+# 5. Bring VS Code to foreground using multiple methods
+Write-Host "Activating VS Code window..."
 $WshShell = New-Object -ComObject WScript.Shell
-$WshShell.AppActivate("Visual Studio Code")
-Start-Sleep -Milliseconds 500
 
-# 5. Send Ctrl+' to focus Cline chat input
+# Try to activate by window title - try several variations
+$Activated = $WshShell.AppActivate("Visual Studio Code")
+if (-not $Activated) {
+    $Activated = $WshShell.AppActivate("Code")
+}
+Start-Sleep -Seconds 1
+
+# 6. Send Ctrl+' to focus Cline chat input
 Write-Host "Focusing Cline input (Ctrl+')..."
 [System.Windows.Forms.SendKeys]::SendWait("^'")
+Start-Sleep -Seconds 1
+
+# 7. Click in the input area by sending Tab to ensure focus
+Write-Host "Ensuring focus in input..."
+[System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+Start-Sleep -Milliseconds 300
+[System.Windows.Forms.SendKeys]::SendWait("+{TAB}")  # Shift+Tab back
 Start-Sleep -Milliseconds 500
 
-# 6. Type the investigation prompt using clipboard (SendKeys has issues with special characters)
-Write-Host "Copying investigation prompt to clipboard..."
-
-# Copy prompt to clipboard
-Set-Clipboard -Value $Prompt
-
-# Paste using Ctrl+V
-Write-Host "Pasting prompt..."
+# 8. Paste using Ctrl+V
+Write-Host "Pasting prompt from clipboard..."
 [System.Windows.Forms.SendKeys]::SendWait("^v")
-Start-Sleep -Milliseconds 500
+Start-Sleep -Seconds 1
 
-# 7. Press Enter to submit
+# 9. Press Enter to submit
 Write-Host "Submitting task..."
 [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
 
