@@ -39,6 +39,10 @@ This workflow is triggered automatically by the Error Orchestrator when new dist
 8. **Update docs/AUTOMATED_PATCHES.md** in this workspace with investigation findings and patches made
 9. **Check for related service changes**: If backend changes require frontend updates, note this
 10. **Run the push workflow** to audit, commit, push, and deploy changes
+11. **Clear the pending errors file** to mark investigation as complete:
+    - Delete the pending file specified in the launch prompt (e.g., `<orchestrator-path>\data\pending\<service>.json`)
+    - This prevents the orchestrator from re-launching the same investigation
+    - Use: `Remove-Item "<pending-file-path>" -Force` or delete via file tools
 
 ## Investigation Guidelines
 

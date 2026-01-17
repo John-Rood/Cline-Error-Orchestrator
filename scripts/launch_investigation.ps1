@@ -4,6 +4,7 @@
 
 param(
     [string]$Service,           # Service name to investigate (required unless -ListServices)
+    [string]$Lookback = "",     # Lookback window for log query (e.g., "24h", "7d"). If set, queries logs directly
     
     [int]$WaitTime = 3,         # Seconds to wait for VS Code to load
     [switch]$NoLaunch,          # Don't launch IDE, just print info
@@ -75,10 +76,103 @@ if (-not (Test-Path $WorkspacePath)) {
     exit 1
 }
 
-# Check for pending errors
+# Handle -Lookback: Query logs directly with specified time window
 $PendingFile = Join-Path $OrchestratorRoot "data\pending\$Service.json"
+
+if ($Lookback) {
+    Write-Host "=== Querying Logs with Lookback: $Lookback ==="
+    
+    # Parse lookback window (e.g., "24h", "7d", "12h", "3d")
+    $LookbackMinutes = 0
+    if ($Lookback -match '^(\d+)h$') {
+        $LookbackMinutes = [int]$Matches[1] * 60
+    }
+    elseif ($Lookback -match '^(\d+)d$') {
+        $LookbackMinutes = [int]$Matches[1] * 60 * 24
+    }
+    else {
+        Write-Error "Invalid lookback format: $Lookback. Use format like '24h' (hours) or '7d' (days)."
+        exit 1
+    }
+    
+    Write-Host "Looking back $LookbackMinutes minutes..."
+    
+    # Calculate start time
+    $StartTime = (Get-Date).AddMinutes(-$LookbackMinutes).ToUniversalTime()
+    
+    # Load and execute provider script
+    $Provider = if ($Config.provider) { $Config.provider } else { "gcp" }
+    $ProviderScript = Join-Path $ScriptDir "providers\$Provider.ps1"
+    
+    if (-not (Test-Path $ProviderScript)) {
+        Write-Error "Provider script not found: $ProviderScript"
+        exit 1
+    }
+    
+    try {
+        $LogEntries = & $ProviderScript -Config $Config -StartTime $StartTime -Verbose
+        Write-Host "Found $($LogEntries.Count) log entries"
+    }
+    catch {
+        Write-Error "Failed to query logs: $_"
+        exit 1
+    }
+    
+    # Filter to only this service
+    $ServiceLogs = $LogEntries | Where-Object { 
+        $_.resource.labels.service_name -eq $Service 
+    }
+    
+    if ($ServiceLogs.Count -eq 0) {
+        Write-Host "No errors found for service '$Service' in the last $Lookback"
+        exit 0
+    }
+    
+    Write-Host "Found $($ServiceLogs.Count) errors for service '$Service'"
+    
+    # Convert to pending format
+    $Now = Get-Date -Format "o"
+    $Errors = @()
+    
+    foreach ($Entry in $ServiceLogs) {
+        $Message = if ($Entry.textPayload) { $Entry.textPayload } else { "" }
+        $ErrorType = "Unknown"
+        
+        # Extract error type
+        if ($Message -match '(?<type>\w+Error):') { $ErrorType = $Matches['type'] }
+        elseif ($Message -match '(?<type>\w+Exception):') { $ErrorType = $Matches['type'] }
+        
+        $Errors += @{
+            signature = [guid]::NewGuid().ToString()
+            first_seen = $Now
+            occurrence_count = 1
+            severity = $Entry.severity
+            error_type = $ErrorType
+            message = $Message
+            traceback = $Message
+            resource_labels = @{
+                service_name = $Service
+                revision_name = $Entry.resource.labels.revision_name
+            }
+            sample_log_entry = $Entry
+        }
+    }
+    
+    # Write pending file
+    $PendingData = @{
+        service = $Service
+        generated_at = $Now
+        lookback_query = $Lookback
+        errors = $Errors
+    }
+    $PendingData | ConvertTo-Json -Depth 20 | Set-Content $PendingFile
+    Write-Host "Created pending file with $($Errors.Count) errors from $Lookback lookback"
+}
+
+# Check for pending errors
 if (-not (Test-Path $PendingFile)) {
     Write-Host "No pending errors for service: $Service"
+    Write-Host "Tip: Use -Lookback 24h to query recent logs"
     exit 0
 }
 

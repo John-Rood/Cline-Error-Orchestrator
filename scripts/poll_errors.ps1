@@ -360,22 +360,47 @@ if (-not $Silent) {
 }
 
 # Auto-launch if requested
+$LaunchScript = Join-Path $ScriptDir "launch_investigation.ps1"
+$ServicesToLaunch = @()
+
 if ($AutoLaunch -or $LaunchAll) {
-    $LaunchScript = Join-Path $ScriptDir "launch_investigation.ps1"
-    
     if ($LaunchAll) {
-        foreach ($ServiceName in $NewErrorsByService.Keys) {
-            Write-Host "Launching investigation for: $ServiceName"
-            & $LaunchScript -Service $ServiceName
-            Start-Sleep -Seconds 5  # Give some time between launches
-        }
+        $ServicesToLaunch = @($NewErrorsByService.Keys)
     }
     else {
         # Launch for first service only
         $FirstService = $NewErrorsByService.Keys | Select-Object -First 1
-        Write-Host "Launching investigation for: $FirstService"
-        & $LaunchScript -Service $FirstService
+        if ($FirstService) {
+            $ServicesToLaunch = @($FirstService)
+        }
     }
+}
+
+# Also check for stale pending files (older than 10 minutes) - these may be failed/disrupted investigations
+$StaleThresholdMinutes = 10
+$PendingDir = Join-Path $OrchestratorRoot "data\pending"
+$StalePendingFiles = Get-ChildItem -Path $PendingDir -Filter "*.json" -ErrorAction SilentlyContinue | Where-Object {
+    # Check if file is older than threshold
+    $AgeMinutes = ((Get-Date) - $_.LastWriteTime).TotalMinutes
+    $AgeMinutes -gt $StaleThresholdMinutes
+}
+
+foreach ($StaleFile in $StalePendingFiles) {
+    $StaleService = [System.IO.Path]::GetFileNameWithoutExtension($StaleFile.Name)
+    $AgeMinutes = [Math]::Round(((Get-Date) - $StaleFile.LastWriteTime).TotalMinutes, 1)
+    
+    # Only add if not already in launch list
+    if ($StaleService -notin $ServicesToLaunch) {
+        Write-Host "Stale pending file found: $StaleService (${AgeMinutes} min old) - re-launching investigation"
+        $ServicesToLaunch += $StaleService
+    }
+}
+
+# Launch investigations for all services in the list
+foreach ($ServiceName in $ServicesToLaunch) {
+    Write-Host "Launching investigation for: $ServiceName"
+    & $LaunchScript -Service $ServiceName
+    Start-Sleep -Seconds 5  # Give some time between launches
 }
 
 Write-Host "Done. Run 'launch_investigation.ps1 -Service <name>' to investigate."
