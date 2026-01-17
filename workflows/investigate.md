@@ -25,14 +25,20 @@ This workflow is triggered automatically by the Error Orchestrator when new dist
    - **User Error**: Something the user did wrong (wrong URL, invalid input, unauthorized access attempt)
    - **System Bug**: Actual defect in our code that needs fixing
    - **External Factor**: Network issues, third-party service failures, GCP outages
-5. **Implement the appropriate response** for each error:
+5. **Verify the error still exists** before implementing any fix:
+   - Check if the affected code has changed since the error timestamp
+   - Use `git log --since="<error_timestamp>" -- <affected_file>` to see recent commits
+   - If the code was already modified, the error may already be fixed
+   - If already fixed: Document as "Already Resolved" in AUTOMATED_PATCHES.md and skip to step 9
+   - Only proceed with a fix if the problematic code still exists
+6. **Implement the appropriate response** for each error:
    - **User Error**: Add exception handler that returns a helpful error message, log with AUTOMATED_PATCH_APPLIED
    - **System Bug**: Fix the actual bug in the code, log with AUTOMATED_PATCH_APPLIED
    - **External Factor**: Add monitoring/alerting, no code changes needed, document for awareness
-6. **For ALL patches**: Add consistent logging with `AUTOMATED_PATCH_APPLIED` event type
-7. **Update docs/AUTOMATED_PATCHES.md** in this workspace with investigation findings and patches made
-8. **Check for related service changes**: If backend changes require frontend updates, note this
-9. **Run the push workflow** to audit, commit, push, and deploy changes
+7. **For ALL patches**: Add consistent logging with `AUTOMATED_PATCH_APPLIED` event type
+8. **Update docs/AUTOMATED_PATCHES.md** in this workspace with investigation findings and patches made
+9. **Check for related service changes**: If backend changes require frontend updates, note this
+10. **Run the push workflow** to audit, commit, push, and deploy changes
 
 ## Investigation Guidelines
 
