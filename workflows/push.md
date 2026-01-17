@@ -45,7 +45,7 @@ git push origin main
 
 ### Step 5: Deploy (if applicable)
 
-If the workspace has a `deploy.ps1` script:
+If the workspace has a `deploy.ps1` script, you do not need permission. Deploy it after a successful push:
 ```powershell
 .\deploy.ps1
 ```
