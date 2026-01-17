@@ -79,13 +79,59 @@ Ask these questions:
 
 **Important**: If the user caused it but our code crashed instead of handling it gracefully → classify as User Error but add defensive code to handle it gracefully.
 
+### CRITICAL: Preserve Error Visibility
+
+**PATCH WORK MUST NOT DESTROY VISIBILITY**
+
+When adding exception handlers or retry mechanisms, ALWAYS ensure fatal exceptions are logged BEFORE being handled. Otherwise, errors become invisible and we lose the ability to detect and fix issues.
+
+**BAD - Destroys Visibility:**
+```python
+try:
+    result = risky_operation()
+except ValueError as e:
+    raise ValueError(response.get("Message"))  # NO LOGGING - Error is invisible!
+```
+
+**GOOD - Preserves Visibility:**
+```python
+try:
+    result = risky_operation()
+except ValueError as e:
+    error_msg = response.get("Message", "Unknown error")
+    logger.error(
+        "Operation failed",
+        extra={
+            "operation": "operation_name",
+            "error": error_msg,
+            "context_field": value,
+        }
+    )
+    raise ValueError(error_msg)  # Now we log BEFORE re-raising
+```
+
+**The Rule:** Every `raise` statement in exception handling should have a corresponding `logger.error()` call before it with relevant context (operation name, parameters, error message).
+
+**Why This Matters:**
+- Without logging, errors never appear in Cloud Logging
+- We can't detect patterns or recurring issues
+- Automated error detection (Error Orchestrator) can't find the problems
+- Debugging becomes impossible - users report issues with no log trail
+
+**Checklist Before Submitting Any Patch:**
+- [ ] All `raise` statements have preceding `logger.error()` calls
+- [ ] Error logs include relevant context (operation name, input params, etc.)
+- [ ] Retry mechanisms log each failure attempt
+- [ ] Final failures after retries are logged with full context
+
 ### Exception Handler Pattern
 
 For user-caused errors, add exception handlers that:
 1. Catch the specific error
-2. Log with AUTOMATED_PATCH_APPLIED event type
-3. Return a helpful error response to the client
-4. Don't crash the server
+2. **LOG the error with full context FIRST**
+3. Log with AUTOMATED_PATCH_APPLIED event type
+4. Return a helpful error response to the client
+5. Don't crash the server
 
 **Python Example:**
 ```python
