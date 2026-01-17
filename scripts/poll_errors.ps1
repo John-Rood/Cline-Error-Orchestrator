@@ -62,9 +62,10 @@ catch {
     exit 1
 }
 
-if ($LogEntries.Count -eq 0) {
-    if ($Verbose) { Write-Host "No errors found." }
-    exit 0
+# Note: Don't exit early here - we still need to check for stale pending files
+$NoNewLogs = ($LogEntries.Count -eq 0)
+if ($NoNewLogs) {
+    if ($Verbose) { Write-Host "No new errors found in logs." }
 }
 
 # Function to normalize traceback line (remove variable parts)
@@ -296,14 +297,38 @@ foreach ($Entry in $LogEntries) {
 
 # Summary
 $TotalNewErrors = ($NewErrorsByService.Values | ForEach-Object { $_.Count } | Measure-Object -Sum).Sum
-if ($TotalNewErrors -eq 0) {
-    if ($Verbose) { Write-Host "No new distinct errors found." }
+$LaunchScript = Join-Path $ScriptDir "launch_investigation.ps1"
+$ServicesToLaunch = @()
+
+# Check for stale pending files FIRST (before any early exit)
+# These may be failed/disrupted investigations that need to be re-launched
+$StaleThresholdMinutes = 10
+$PendingDir = Join-Path $OrchestratorRoot "data\pending"
+$StalePendingFiles = Get-ChildItem -Path $PendingDir -Filter "*.json" -ErrorAction SilentlyContinue | Where-Object {
+    $AgeMinutes = ((Get-Date) - $_.LastWriteTime).TotalMinutes
+    $AgeMinutes -gt $StaleThresholdMinutes
+}
+
+foreach ($StaleFile in $StalePendingFiles) {
+    $StaleService = [System.IO.Path]::GetFileNameWithoutExtension($StaleFile.Name)
+    $AgeMinutes = [Math]::Round(((Get-Date) - $StaleFile.LastWriteTime).TotalMinutes, 1)
+    Write-Host "Stale pending file found: $StaleService (${AgeMinutes} min old) - will re-launch investigation"
+    $ServicesToLaunch += $StaleService
+}
+
+if ($TotalNewErrors -eq 0 -and $ServicesToLaunch.Count -eq 0) {
+    if ($Verbose) { Write-Host "No new distinct errors found and no stale pending files." }
     
     # Still save updated seen_errors (for counts/timestamps)
     if (-not $WhatIf -and $UpdatedSignatures.Count -gt 0) {
         $SeenErrors | ConvertTo-Json -Depth 10 | Set-Content $SeenErrorsPath
     }
+    Write-Host "Done. No actions needed."
     exit 0
+}
+
+if ($TotalNewErrors -eq 0) {
+    if ($Verbose) { Write-Host "No new distinct errors, but found stale pending files to retry." }
 }
 
 Write-Host "Found $TotalNewErrors new distinct error(s) across $($NewErrorsByService.Count) service(s):"
@@ -359,40 +384,21 @@ if (-not $Silent) {
     }
 }
 
-# Auto-launch if requested
-$LaunchScript = Join-Path $ScriptDir "launch_investigation.ps1"
-$ServicesToLaunch = @()
-
+# Auto-launch: Add new errors to launch list (stale files were already added above)
 if ($AutoLaunch -or $LaunchAll) {
     if ($LaunchAll) {
-        $ServicesToLaunch = @($NewErrorsByService.Keys)
-    }
-    else {
-        # Launch for first service only
-        $FirstService = $NewErrorsByService.Keys | Select-Object -First 1
-        if ($FirstService) {
-            $ServicesToLaunch = @($FirstService)
+        foreach ($ServiceName in $NewErrorsByService.Keys) {
+            if ($ServiceName -notin $ServicesToLaunch) {
+                $ServicesToLaunch += $ServiceName
+            }
         }
     }
-}
-
-# Also check for stale pending files (older than 10 minutes) - these may be failed/disrupted investigations
-$StaleThresholdMinutes = 10
-$PendingDir = Join-Path $OrchestratorRoot "data\pending"
-$StalePendingFiles = Get-ChildItem -Path $PendingDir -Filter "*.json" -ErrorAction SilentlyContinue | Where-Object {
-    # Check if file is older than threshold
-    $AgeMinutes = ((Get-Date) - $_.LastWriteTime).TotalMinutes
-    $AgeMinutes -gt $StaleThresholdMinutes
-}
-
-foreach ($StaleFile in $StalePendingFiles) {
-    $StaleService = [System.IO.Path]::GetFileNameWithoutExtension($StaleFile.Name)
-    $AgeMinutes = [Math]::Round(((Get-Date) - $StaleFile.LastWriteTime).TotalMinutes, 1)
-    
-    # Only add if not already in launch list
-    if ($StaleService -notin $ServicesToLaunch) {
-        Write-Host "Stale pending file found: $StaleService (${AgeMinutes} min old) - re-launching investigation"
-        $ServicesToLaunch += $StaleService
+    else {
+        # Launch for first new service only (if any)
+        $FirstService = $NewErrorsByService.Keys | Select-Object -First 1
+        if ($FirstService -and $FirstService -notin $ServicesToLaunch) {
+            $ServicesToLaunch += $FirstService
+        }
     }
 }
 
