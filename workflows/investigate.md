@@ -1,6 +1,6 @@
 # Error Investigation Workflow
 
-> **⚠️ IMPORTANT:** Before starting any work, read `AGENT_INSTRUCTIONS_READ_FIRST.md` in the target workspace if it exists. It contains critical workflow and environment-specific instructions.
+> **⚠️ IMPORTANT:** Before starting any work, read `CLAUDE.md` in the target workspace if it exists. It contains critical workflow and environment-specific instructions.
 
 This workflow investigates pending errors detected by the Error Orchestrator system.
 
