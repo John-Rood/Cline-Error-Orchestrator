@@ -1,0 +1,103 @@
+{
+  "errors": [
+    {
+      "id": "insyte-staging-invalid-credentials-2026-01-21",
+      "service": "insyte-server-staging",
+      "errorType": "InvalidCredentials",
+      "user": "john.rood@decision.com",
+      "firstSeen": "2026-01-21T07:13:19Z",
+      "lastSeen": "2026-01-23T22:59:25Z",
+      "count": 5,
+      "note": "User credential failure against external SyteLine IDO - not code-fixable",
+      "actionTaken": "logged_only"
+    },
+    {
+      "id": "insyte-staging-deployment-type-column-2026-01-22",
+      "service": "insyte-server-staging",
+      "errorType": "UndefinedColumn",
+      "detail": "column site_configs.deployment_type does not exist",
+      "endpoints": ["/insyte", "/admin/sites", "/test-connection"],
+      "firstSeen": "2026-01-22T18:59:12Z",
+      "lastSeen": "2026-01-22T18:59:25Z",
+      "count": 9,
+      "note": "Database schema mismatch - SQLAlchemy model has deployment_type column not in DB",
+      "actionTaken": "spawning_fix_agent"
+    },
+    {
+      "id": "insyte-prod-invalid-credentials-2026-01-22",
+      "service": "insyte-server",
+      "errorType": "InvalidCredentials",
+      "user": "john.rood@decision.com",
+      "firstSeen": "2026-01-22T18:56:41Z",
+      "lastSeen": "2026-01-28T19:33:09Z",
+      "count": 3,
+      "note": "User credential failure against SyteLine IDO - not code-fixable (john.weber@decision.com hit this too)",
+      "actionTaken": "logged_only"
+    },
+    {
+      "id": "insyte-prod-enum-mismatch-2026-01-23",
+      "service": "insyte-server",
+      "errorType": "EnumMismatch",
+      "detail": "'cloud' not in deploymenttype enum (expects CLOUD); 'super_admin' not in userrole enum (expects ADMIN, USER)",
+      "endpoints": ["/insyte", "/admin/sites", "/test-connection", "/admin/team"],
+      "firstSeen": "2026-01-23T12:49:41Z",
+      "lastSeen": "2026-01-23T15:45:04Z",
+      "count": 18,
+      "note": "Database has lowercase enum values - still occurring, respawned fix agent",
+      "actionTaken": "spawning_fix_agent_v2"
+    },
+    {
+      "id": "insyte-prod-format-specifier-2026-01-28",
+      "service": "insyte-server",
+      "errorType": "ValueError",
+      "detail": "Invalid format specifier in system_prompt f-string",
+      "location": "InSyte.py line 1437 (main_stream)",
+      "trigger": "User query with datetime formatting",
+      "firstSeen": "2026-01-28T18:59:39Z",
+      "lastSeen": "2026-01-28T19:37:20Z",
+      "count": 2,
+      "stagingFix": "insyte-server-staging-00027-jq6",
+      "note": "FIX COMPLETE in staging - awaiting production deploy approval",
+      "actionTaken": "fix_deployed_to_staging"
+    },
+    {
+      "id": "get-loc-decrypt-nonetype-2026-01-30",
+      "service": "get-loc",
+      "errorType": "TypeError",
+      "errorGroup": "CJ-e9frs_OP8_QE",
+      "detail": "decrypt() received NoneType - stored_pass is None during login",
+      "location": "app.py line 399 (login function)",
+      "endpoint": "/login",
+      "remoteIp": "121.199.14.141",
+      "firstSeen": "2026-01-30T19:51:11Z",
+      "count": 2,
+      "note": "FIXED: Added short-circuit None check before decrypt(). Build e89c5638 deployed.",
+      "actionTaken": "fix_deployed_to_production"
+    }
+  ],
+  "lastUpdated": "2026-01-30T21:00:00Z",
+  "transient": [
+    {
+      "id": "dante-coldstart-503-2026-01-30",
+      "service": "dante",
+      "errorType": "503",
+      "endpoint": "/__clawdbot__/health",
+      "timestamp": "2026-01-30T20:44:58Z",
+      "count": 1,
+      "note": "Cold-start timeout on health probe. Service just deployed. Transient.",
+      "actionTaken": "monitored_only"
+    },
+    {
+      "id": "get-vecs-worker-timeout-2026-01-31",
+      "service": "get-vecs",
+      "errorType": "WorkerTimeout",
+      "errorGroup": "COvvrNaSirjJ_QE",
+      "detail": "Gunicorn worker abort (SystemExit: 1 from handle_abort) - request exceeded timeout",
+      "timestamp": "2026-01-31T14:49:59Z",
+      "count": 1,
+      "note": "Worker timeout - slow request got killed by Gunicorn. Operational, not code bug.",
+      "actionTaken": "monitored_only"
+    }
+  ],
+  "lastUpdated": "2026-01-31T15:00:00Z"
+}
